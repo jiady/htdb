@@ -68,5 +68,8 @@ class ZhihuSpider(scrapy.Spider):
     def parse_people_list(self, response):
         pass
 
+    def parse_people_list_detail(self,response):
+        pass
+
     def parse_people_info(self, response):
         pass

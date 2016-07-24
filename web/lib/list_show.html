@@ -1,0 +1,27 @@
+<div class="container">
+    <h1>Zhihu User</h1>
+    <ul class="medai-list">
+        <li *ngFor="let person of people" class="media">
+            <div class="media-left">
+                <img class="media-object" [src]="person.image_href" [alt]="person.name">
+            </div>
+            <div class="media-body">
+                <a [href]="person.href"><h4>{{person.bio}}</h4></a>
+                <p>
+                    <span class="label label-primary" *ngIf="person.school!='not-found'">{{person.school}}</span>
+                    <span class="label label-warning" *ngIf="person.major!='not-found'">{{person.major}}</span>
+                    <span class="label label-default" *ngIf="person.follower_num!='not-found'">关注者：{{person.follower_num}}</span>
+                    <span class="label label-info" *ngIf="person.city!='not-found'">城市：{{person.city}}</span>
+                </p>
+                <p *ngIf="person.introduction!='not-found'">
+                    {{person.introduction}}
+                </p>
+            </div>
+            <div class="media-right">
+                <button type="button" class="btn btn-danger">Like</button>
+                <button type="button" class="btn btn-default">Dislike</button>
+            </div>
+        </li>
+    </ul>
+
+</div>

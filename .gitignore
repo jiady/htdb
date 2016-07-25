@@ -9,7 +9,11 @@
 *.so
 *.a
 
+*.private
 
+#dart
+web/.pub/*
+web/build/*
+web/packages/*
 
-
-
+config_private.py

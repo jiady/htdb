@@ -12,7 +12,7 @@ import 'package:angular2/core.dart';
 class AppComponent implements OnInit{
   final PeopleService _peopleService;
   AppComponent(this._peopleService);
-  List<Person> people;
+  List<Person> people = new List<Person>();
 
   Future<Null> getPeople() async{
     people=await _peopleService.getPeople();

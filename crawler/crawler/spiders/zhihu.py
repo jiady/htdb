@@ -205,7 +205,7 @@ class ZhihuSpider(scrapy.Spider):
             person['agree_num'] = profileCard.xpath(
                 ".//div[@class='zm-profile-header-info-list']//span[@class='zm-profile-header-user-agree']/strong/text()").extract_first(
                 default='not-found')
-            sideBar = response.selector.xpath(".//div[@class='zu-main-sidebar']/div[1]")
+            sideBar = response.selector.xpath(".//div[@class='zu-main-sidebar']/div[@class='zm-profile-side-following zg-clear']")
             person['followee_num'] = sideBar.xpath("a[1]/strong/text()").extract_first(default='not-found')
             person['follower_num'] = sideBar.xpath("a[2]/strong/text()").extract_first(default='not-found')
 

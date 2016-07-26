@@ -30,7 +30,9 @@ class RedisPipeline(object):
     def process_relation_item(self, item, spider):
         if item['follower'] != 'not-found' and item['followee'] != 'not-found':
             self.rclient.sadd("followees/" + item['follower'], item['followee'])
-            self.rclient.sadd(spider.QUEUE_NAME, item['followee'])
+            if (not self.rclient.sismember(redis_const.SET_SUCCESS, item['followee'])) and (not self.rclient.sismember(
+                    redis_const.SET_SEEN, item['followee'])):
+                self.rclient.sadd(spider.QUEUE_NAME, item['followee'])
         else:
             spider.send_mail("process_relation_item_exception", str(item))
 

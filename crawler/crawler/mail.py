@@ -13,7 +13,7 @@ class Mail:
         self.flog = flog
 
     def send_timed(self, second_lock, subject, text):
-        if (subject in self.time_lock) and self.time_lock[subject] + second_lock < time.time():
+        if (subject in self.time_lock) and self.time_lock[subject] + second_lock > time.time():
             self.flog.info("not send mail due to time_lock:sub:%s,text:%s", subject, text)
             return
         else:

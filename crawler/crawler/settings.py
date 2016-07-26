@@ -33,7 +33,7 @@ CONCURRENT_REQUESTS = 2
 
 # Disable cookies (enabled by default)
 # COOKIES_ENABLED = False
-#COOKIES_DEBUG = True
+# COOKIES_DEBUG = True
 
 # Disable Telnet Console (enabled by default)
 TELNETCONSOLE_ENABLED = False
@@ -52,12 +52,12 @@ DEFAULT_REQUEST_HEADERS = {
 # Enable or disable spider middlewares
 # See http://scrapy.readthedocs.org/en/latest/topics/spider-middleware.html
 # SPIDER_MIDDLEWARES = {
-#    'scrapy.downloadermiddlewares.defaultheaders.DefaultHeadersMiddleware':None,
 # }
 
 # Enable or disable downloader middlewares
 # See http://scrapy.readthedocs.org/en/latest/topics/downloader-middleware.html
 DOWNLOADER_MIDDLEWARES = {
+    'crawler.ImhumanMiddleware.ImhumanMiddleware':10,
     'scrapy.downloadermiddlewares.defaultheaders.DefaultHeadersMiddleware': None,
 }
 
@@ -76,6 +76,8 @@ SCHEDULER_MEMORY_QUEUE = 'scrapy.squeues.FifoMemoryQueue'
 ITEM_PIPELINES = {
     'crawler.pipelines.RedisPipeline': 10,
 }
+
+DUPEFILTER_CLASS = 'crawler.spiders.MyDupeFilter.MyDupeFilter'
 
 # Enable and configure the AutoThrottle extension (disabled by default)
 # See http://doc.scrapy.org/en/latest/topics/autothrottle.html

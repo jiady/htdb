@@ -14,7 +14,7 @@ import redis
 class filterConditon:
     # propogation node limit condition
     school_target = [u"复旦大学", u"华东师范大学", u"上海交通大学", u"同济大学", u"SJTU", u"sjtu", u"fdu", u"FDU", u"ECNU", u"ecnu",
-                     u"上海财经大学", u"上海外国语大学"]
+                     u"上海财经大学", u"上海外国语大学",u"浙江大学",u"南京大学",u"ZJU",]
     followee_min = 0
     followee_max = 1000
     # target node limitation
@@ -24,6 +24,7 @@ class filterConditon:
     follower_max = 3000
     # ranking dict
     topic_score = {}
+    stop = False
 
 
 class ZhihuSpider(scrapy.Spider):
@@ -69,6 +70,7 @@ class ZhihuSpider(scrapy.Spider):
             'Referer': 'https://www.zhihu.com/',
             'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:35.0) Gecko/20100101 Firefox/35.0',
         }
+        self.stop = False
 
     def send_mail(self, subject, text, lock=600):
         self.myMail.send_timed(lock, subject + "@" + self.sub_name, text)
@@ -104,13 +106,18 @@ class ZhihuSpider(scrapy.Spider):
 
     def startUrls(self):
         url_head = "https://www.zhihu.com/people/"
-        seed_users = ["jia-dong-yu"]
+        seed_users = []
         if self.start_from_redis:
             rclient = redis.StrictRedis(host="localhost", port=6379, db=0)
-            seed_users = rclient.smembers(self.QUEUE_NAME)
+            seed_users.extend(rclient.smembers(self.QUEUE_NAME))
         if self.start_from_file is not None:
             f = open(self.start_from_file, 'r')
-            seed_users = f.readlines()
+            user = f.readlines()
+            user = map(lambda x: x.strip("\n"), user)
+            seed_users.extend(user)
+        if len(seed_users) == 0:
+            seed_users.append("jia-dong-yu")
+
         ret_list = []
         for user in seed_users:
             ret_list.append(scrapy.Request(url_head + user, headers=self.headers, dont_filter=True,
@@ -182,7 +189,7 @@ class ZhihuSpider(scrapy.Spider):
             person['hash_id'] = basic_info[3].strip('"')
             top = profileCard.xpath(".//div[@class='top']")
             person["name"] = top.xpath(".//span[@class='name']/text()").extract_first(default='not-found')
-            person['bio'] = top.xpath(".//span[@class='bio']/text()").extract_first(default='not-found')
+            person['bio'] = top.xpath(".//div[@class='bio']/text()").extract_first(default='not-found')
             infoItem = profileCard.xpath("//div[@class='items']")
             person['city'] = infoItem.xpath(".//span[contains(@class,'location')]/@title").extract_first(
                 default='not-found')
@@ -233,4 +240,5 @@ class ZhihuSpider(scrapy.Spider):
                         callback=self.parse_people_list_more
                     )
         except Exception, e:
-            self.send_mail("parse_people_list_exception", str(e))
+            self.send_mail("parse_people_info", str(
+                e) + "response:" + response.url + "\nresponse_body:" + response.body + "request:" + response.request.url)

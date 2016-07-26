@@ -52,9 +52,9 @@ class ZhihuTest(unittest.TestCase):
                                             body=content)
         for person in self.zhihuSpider.parse_people_info(response):
             for key, value in person.items():
+                print key, value
                 self.assertNotEqual(value, 'not-found')
             self.assertEqual(person['url_name'], 'jia-dong-yu')
-            #print person['image_href']
             self.assertEqual(person['name'], "Dongyus Jia")
             break
 

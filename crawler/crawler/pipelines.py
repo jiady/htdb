@@ -28,19 +28,20 @@ class RedisPipeline(object):
         return item
 
     def process_relation_item(self, item, spider):
-        if items['follower'] != 'not-found' and items['followee'] != 'not-found':
+        if item['follower'] != 'not-found' and item['followee'] != 'not-found':
             self.rclient.sadd("followees/" + item['follower'], item['followee'])
             self.rclient.sadd(spider.QUEUE_NAME, item['followee'])
         else:
-            spider.send_mail("process_relation_item_exception", str(items))
+            spider.send_mail("process_relation_item_exception", str(item))
 
     def process_person_item(self, item, spider):
         d = dict(item)
-        if items["name"] == "not-found" and len(items["hash_id"]) != 32:
+        if item["name"] == "not-found" and len(item["hash_id"]) != 32:
             spider.send_mail("format error person", json.dumps(d))
             return
-        self.rclient.smove(redis_const.SET_SEEN, redis_const.SET_SUCCESS, items["url_name"])
-        self.rclient.srem(spider.QUEUE_NAME, items["url_name"])
+        self.rclient.sadd(redis_const.SET_SUCCESS, item["url_name"])
+        self.rclient.srem(redis_const.SET_SEEN, item["url_name"])
+        self.rclient.srem(spider.QUEUE_NAME, item["url_name"])
 
         if item["if_female"]:
             self.rclient.set("people/" + item["hash_id"], json.dumps(d))

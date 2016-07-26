@@ -14,3 +14,5 @@ class ImhumanMiddleware(object):
     def process_response(self, request, response, spider):
         if "www.zhihu.com/imhuman" in request.url:
             spider.myMail.send_timed(1200, "imhuman报警", response.body)
+            raise IgnoreRequest()
+        return response

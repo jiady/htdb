@@ -1,19 +1,20 @@
 # -*- coding: utf-8 -*-
 
-import zhihu
-import unittest
-import scrapy
-import os
 import json
-from scrapy import Selector
-from urllib import unquote
+import os
+import unittest
+
+import scrapy
+
+import zhihu
 # usage like below must set PythonPath
 from crawler import items
+import redis
 
 
 class ZhihuTest(unittest.TestCase):
     def setUp(self):
-        self.zhihuSpider = zhihu.ZhihuSpider()
+        self.zhihuSpider = zhihu.ZhihuSpider(user="1",pwd="1",sub_name="1")
 
     def test_get_user_account(self):
         t = self.zhihuSpider.loadUserAccount();
@@ -53,16 +54,28 @@ class ZhihuTest(unittest.TestCase):
             for key, value in person.items():
                 self.assertNotEqual(value, 'not-found')
             self.assertEqual(person['url_name'], 'jia-dong-yu')
-            print person['image_href']
+            #print person['image_href']
+            self.assertEqual(person['name'], "Dongyus Jia")
             break
 
     def test_item_to_json(self):
         relationItem = items.RelationItem()
-        relationItem["follower"] = "a"
+        relationItem[u"follower"] = "a'"
         relationItem["followee"] = "b"
-        self.assertEqual(str(relationItem),
-                         "{'followee': 'b', 'follower': 'a'}")
+        d = dict(relationItem)
+        #print json.dumps(d)
+        self.assertEqual(json.dumps(d),
+                         "{\"follower\": \"a'\", \"followee\": \"b\"}")
 
+    def test_redis(self):
+        self.rclient = redis.StrictRedis(host="localhost", port=6379, db=0)
+        self.assertEqual(0,self.rclient.sismember("propogation_people", "jia-dong-yu"))
+        l=self.rclient.smembers("target_people")
+        for p in l:
+            st=self.rclient.get("people/"+p)
+            i=st.find('url_name')
+            #print st[i+12:-2]
+            break
 
 if __name__ == '__main__':
     unittest.main()

@@ -6,6 +6,8 @@
 # See: http://doc.scrapy.org/en/latest/topics/item-pipeline.html
 import redis
 import items
+import json
+import redis_const
 
 
 class RedisPipeline(object):
@@ -26,11 +28,23 @@ class RedisPipeline(object):
         return item
 
     def process_relation_item(self, item, spider):
-        self.rclient.sadd("followees/" + item['follower'], item['followee'])
+        if items['follower'] != 'not-found' and items['followee'] != 'not-found':
+            self.rclient.sadd("followees/" + item['follower'], item['followee'])
+            self.rclient.sadd(spider.QUEUE_NAME, item['followee'])
+        else:
+            spider.send_mail("process_relation_item_exception", str(items))
 
     def process_person_item(self, item, spider):
-        self.rclient.set("people/" + item["hash_id"], str(item))
-        self.rclient.set("hash/" + item["url_name"], item["hash_id"])
+        d = dict(item)
+        if items["name"] == "not-found" and len(items["hash_id"]) != 32:
+            spider.send_mail("format error person", json.dumps(d))
+            return
+        self.rclient.smove(redis_const.SET_SEEN, redis_const.SET_SUCCESS, items["url_name"])
+        self.rclient.srem(spider.QUEUE_NAME, items["url_name"])
+
+        if item["if_female"]:
+            self.rclient.set("people/" + item["hash_id"], json.dumps(d))
+            self.rclient.set("hash/" + item["url_name"], item["hash_id"])
 
     def process_targetperson_item(self, item, spider):
         self.rclient.sadd("target_people", item["hash_id"])

@@ -9,12 +9,14 @@ import logging.handlers
 from crawler.mail import Mail
 from crawler import redis_const
 import redis
+import time
+import ConfigParser
 
 
 class filterConditon:
     # propogation node limit condition
     school_target = [u"复旦大学", u"华东师范大学", u"上海交通大学", u"同济大学", u"SJTU", u"sjtu", u"fdu", u"FDU", u"ECNU", u"ecnu",
-                     u"上海财经大学", u"上海外国语大学",u"浙江大学",u"南京大学",u"ZJU",]
+                     u"上海财经大学", u"上海外国语大学", u"浙江大学", u"南京大学", u"ZJU", ]
     followee_min = 0
     followee_max = 1000
     # target node limitation
@@ -36,20 +38,37 @@ class ZhihuSpider(scrapy.Spider):
     sub_name = ""
     user = ""
     pwd = ""
-    QUEUE_NAME = redis_const.QUEUE_PREFIX
+    sub_type = ""
+    pending_Q = ""
+    pending_S = ""
+    seen_S = ""
+    success_S = ""
+    cookies = dict()
 
     # not add header will lead to getting 500 internal error.
     def __init__(self, user=None, pwd=None, sub_name=None, start_from_redis=False,
-                 start_from_file=None):
-        if user is None or pwd is None or sub_name is None:
-            self.logger.error("an sub_config must be given")
-            exit(0)
+                 start_from_file=None, sub_type=redis_const.TYPE_NO_ACCOUNT, master=False):
+        if sub_type == redis_const.TYPE_HAS_ACCOUNT:
+            if user is None or pwd is None or sub_name is None:
+                self.logger.error("an sub_config must be given")
+                exit(0)
+        scrapy.Spider.__init__(self)
+        self.master = master
         self.user = user
         self.pwd = pwd
-        self.sub_name = sub_name
+        if self.master:
+            self.sub_name = "master." + sub_type + "," + sub_name
+        else:
+            self.sub_name = "slave." + sub_type + "," + sub_name
+        self.sub_type = sub_type
         self.start_from_redis = start_from_redis
         self.start_from_file = start_from_file
-        self.QUEUE_NAME = redis_const.QUEUE_PREFIX + self.sub_name
+        self.pending_Q = redis_const.PENDING_QUEUE + self.sub_type
+        self.pending_S = redis_const.PENDING_SET + self.sub_type
+        self.seen_S = redis_const.SET_SEEN + self.sub_type
+        self.success_S = redis_const.SET_SUCCESS + self.sub_type
+        self.rclient = redis.StrictRedis(host="localhost", port=6379, db=0)
+
         handler = logging.handlers.TimedRotatingFileHandler(
             "htdb_" + self.sub_name + ".log",
             when='D',
@@ -71,65 +90,112 @@ class ZhihuSpider(scrapy.Spider):
             'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:35.0) Gecko/20100101 Firefox/35.0',
         }
         self.stop = False
+        cf = ConfigParser.ConfigParser()
+        f = os.path.dirname(os.path.realpath(__file__))
+        cf.read(f + '/config.private')
+        cookies = cf.items('cookies')
+        self.cookies = dict(cookies)
+        self.headers['X-Xsrftoken'] = self.cookies["_xsrf"]
 
     def send_mail(self, subject, text, lock=600):
         self.myMail.send_timed(lock, subject + "@" + self.sub_name, text)
 
-    def loadUserAccount(self):
-        form_data_to_post = {
-            "email": self.user,
-            "password": self.pwd,
-            "remember_me": "true"
-        }
-        self.logger.info(form_data_to_post)
-        return form_data_to_post
+    def prepare(self):
+        if self.master:
+            seen = self.rclient.spop(self.seen_S)
+            print self.pending_S, self.pending_Q, seen
+            while seen is not None:
+                if self.rclient.sadd(self.pending_S, seen):
+                    self.rclient.rpush(self.pending_Q, seen)
+                seen = self.rclient.spop(self.seen_S)
+            time.sleep(1)
+            self.fromFile()
+            self.logger.info("master prepare done!")
+        else:
+            self.logger.info("this is s slave,wait a sec...")
+            time.sleep(5)
+
+    def consume(self, response):
+        b = "http://www.zhihu.com/people/"
+        count = 50
+        if self.sub_type == redis_const.TYPE_HAS_ACCOUNT:
+            count = 20
+            b = "https://www.zhihu.com/people/"
+        while count > 0:
+            name = self.rclient.lpop(self.pending_Q)
+            if name is not None:
+                self.rclient.sadd(self.seen_S, name)
+                self.rclient.srem(self.pending_S, name)
+                yield scrapy.Request(b + name,
+                                     callback=self.parse_people_info,
+                                     headers=self.headers)
+                if self.sub_type == redis_const.TYPE_HAS_ACCOUNT:
+                    time.sleep(1)
+                count -= 1
+            else:
+                break
+        yield scrapy.Request("http://www.zhihu.com",
+                             callback=self.backToConsume,
+                             headers=self.headers)
+
+    def backToConsume(self, response):
+        yield scrapy.Request("http://www.zhihu.com",
+                             callback=self.consume,
+                             headers=self.headers)
 
     def start_requests(self):
-        yield scrapy.Request(
-            "http://www.zhihu.com",
-            callback=self.login,
-            headers=self.headers
-        )
+        self.prepare()
+        if self.sub_type == redis_const.TYPE_HAS_ACCOUNT:
+            yield scrapy.Request(
+                "http://www.zhihu.com",
+                callback=self.consume,
+                headers=self.headers,
+                cookies=self.cookies
+            )
+        elif self.sub_type == redis_const.TYPE_NO_ACCOUNT:
+            yield scrapy.Request(
+                "http://www.zhihu.com",
+                callback=self.consume,
+                headers=self.headers
+            )
 
     def login(self, response):
         xsrf = scrapy.Selector(response).xpath('//input[@name="_xsrf"]/@value').extract()[0]
         self.logger.info("xsrf:%s", xsrf)
-        post_data = self.loadUserAccount()
+        post_data = {
+            "phone_num": self.user,
+            "password": self.pwd,
+            "remember_me": "true"
+        }
+        self.logger.info(post_data)
         post_data['_xsrf'] = xsrf
         self.headers['X-Xsrftoken'] = xsrf
         yield scrapy.FormRequest(
-            "http://www.zhihu.com/login/email",
+            "http://www.zhihu.com/login/phone_num",
             formdata=post_data,
             headers=self.headers,
             callback=self.check_login
         )
 
-    def startUrls(self):
-        url_head = "https://www.zhihu.com/people/"
-        seed_users = []
-        if self.start_from_redis:
-            rclient = redis.StrictRedis(host="localhost", port=6379, db=0)
-            seed_users.extend(rclient.smembers(self.QUEUE_NAME))
+    def fromFile(self):
         if self.start_from_file is not None:
             f = open(self.start_from_file, 'r')
             user = f.readlines()
             user = map(lambda x: x.strip("\n"), user)
-            seed_users.extend(user)
-        if len(seed_users) == 0:
-            seed_users.append("jia-dong-yu")
-
-        ret_list = []
-        for user in seed_users:
-            ret_list.append(scrapy.Request(url_head + user, headers=self.headers, dont_filter=True,
-                                           callback=self.parse_people_info))
-        return ret_list
+            for u in user:
+                if self.rclient.sadd(self.pending_S, u):
+                    self.rclient.rpush(self.pending_Q, u)
 
     def check_login(self, response):
         if response.status == 200:
             message = response.selector.xpath("//p[1]").extract()[0].decode("unicode_escape")
             if u"成功" in message:
                 self.logger.info("login success!!!")
-                return self.startUrls()
+                yield scrapy.Request(
+                    "http://www.zhihu.com",
+                    callback=self.consume,
+                    headers=self.headers
+                )
             else:
                 self.logger.error("login failed:%s", message)
         else:
@@ -151,7 +217,6 @@ class ZhihuSpider(scrapy.Spider):
                 ret["followee"] = url_name
                 yield ret
                 self.logger.info(href)
-                yield scrapy.Request(href, callback=self.parse_people_info, headers=self.headers)
         except Exception, e:
             self.send_mail("parse_people_list_exception", str(e))
 
@@ -205,40 +270,55 @@ class ZhihuSpider(scrapy.Spider):
             person['agree_num'] = profileCard.xpath(
                 ".//div[@class='zm-profile-header-info-list']//span[@class='zm-profile-header-user-agree']/strong/text()").extract_first(
                 default='not-found')
-            sideBar = response.selector.xpath(".//div[@class='zu-main-sidebar']/div[@class='zm-profile-side-following zg-clear']")
+            sideBar = response.selector.xpath(
+                ".//div[@class='zu-main-sidebar']/div[@class='zm-profile-side-following zg-clear']")
             person['followee_num'] = sideBar.xpath("a[1]/strong/text()").extract_first(default='not-found')
             person['follower_num'] = sideBar.xpath("a[2]/strong/text()").extract_first(default='not-found')
 
-            yield person
+            if self.sub_type == redis_const.TYPE_NO_ACCOUNT:
+                person['followee_num'] = "0"
+                person['follower_num'] = "0"
+                yield person
+                if self.judge_person_as_target(person) and (not self.judge_person_as_valid_source(person)):
+                    target = items.TargetPersonItem()
+                    target['hash_id'] = person['hash_id']
+                    yield target
+                elif self.judge_person_as_valid_source(person):
+                    tosend = items.SendToAccountItem()
+                    tosend["url_name"] = person['url_name']
+                    yield tosend
+            else:
+                yield person
 
-            if self.judge_person_as_target(person):
-                target = items.TargetPersonItem()
-                target['hash_id'] = person['hash_id']
-                yield target
+                if self.judge_person_as_target(person):
+                    target = items.TargetPersonItem()
+                    target['hash_id'] = person['hash_id']
+                    yield target
 
-            if self.judge_person_as_valid_source(person):
-                target = items.PropogationPersonItem()
-                target['hash_id'] = person['hash_id']
-                yield target
-                form = dict()
-                form["method"] = "next"
-                params = dict()
-                params['offset'] = 0
-                params['order_by'] = "created"
-                params['hash_id'] = person['hash_id']
-                for offset in xrange(int(person['followee_num']) / 20 + 1):
-                    params['offset'] = offset * 20
-                    form['params'] = json.dumps(params)
-                    self.logger.info(str(form))
-                    header_this = self.headers.copy()
-                    header_this['Referer'] = response.url + "/followees"
-                    header_this['tracking_user_hash'] = person['hash_id']
-                    yield scrapy.FormRequest(
-                        "https://www.zhihu.com/node/ProfileFolloweesListV2",
-                        formdata=form,
-                        headers=header_this,
-                        callback=self.parse_people_list_more
-                    )
+                if self.judge_person_as_valid_source(person):
+                    target = items.PropogationPersonItem()
+                    target['hash_id'] = person['hash_id']
+                    yield target
+                    form = dict()
+                    form["method"] = "next"
+                    params = dict()
+                    params['offset'] = 0
+                    params['order_by'] = "created"
+                    params['hash_id'] = person['hash_id']
+                    for offset in xrange(int(person['followee_num']) / 20 + 1):
+                        params['offset'] = offset * 20
+                        form['params'] = json.dumps(params)
+                        self.logger.info(str(form))
+                        header_this = self.headers.copy()
+                        header_this['Referer'] = response.url + "/followees"
+                        header_this['tracking_user_hash'] = person['hash_id']
+                        yield scrapy.FormRequest(
+                            "https://www.zhihu.com/node/ProfileFolloweesListV2",
+                            formdata=form,
+                            headers=header_this,
+                            callback=self.parse_people_list_more
+                        )
+                        time.sleep(0.5)
         except Exception, e:
             self.send_mail("parse_people_info", str(
                 e) + "response:" + response.url + "\nresponse_body:" + response.body + "request:" + response.request.url)

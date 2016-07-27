@@ -30,10 +30,12 @@ class PersonItem(scrapy.Item):
 class TargetPersonItem(scrapy.Item):
     hash_id = scrapy.Field()
 
-
 class PropogationPersonItem(scrapy.Item):
     hash_id = scrapy.Field()
 
 class TopicFollowItem(scrapy.Item):
     hash_id = scrapy.Field()
     topic_followed = scrapy.Field()
+
+class SendToAccountItem(scrapy.Item):
+    url_name = scrapy.Field()

@@ -25,14 +25,14 @@ class RedisPipeline(object):
             self.process_targetperson_item(item, spider)
         elif isinstance(item, items.PropogationPersonItem):
             self.process_propogationperson_item(item, spider)
+        elif isinstance(item, items.SendToAccountItem):
+            self.process_sendtoaccount_item(item, spider)
         return item
 
     def process_relation_item(self, item, spider):
         if item['follower'] != 'not-found' and item['followee'] != 'not-found':
             self.rclient.sadd("followees/" + item['follower'], item['followee'])
-            if (not self.rclient.sismember(redis_const.SET_SUCCESS, item['followee'])) and (not self.rclient.sismember(
-                    redis_const.SET_SEEN, item['followee'])):
-                self.rclient.sadd(spider.QUEUE_NAME, item['followee'])
+            self.sendToNoAccount(item['followee'])
         else:
             spider.send_mail("process_relation_item_exception", str(item))
 
@@ -41,9 +41,8 @@ class RedisPipeline(object):
         if item["name"] == "not-found" and len(item["hash_id"]) != 32:
             spider.send_mail("format error person", json.dumps(d))
             return
-        self.rclient.sadd(redis_const.SET_SUCCESS, item["url_name"])
-        self.rclient.srem(redis_const.SET_SEEN, item["url_name"])
-        self.rclient.srem(spider.QUEUE_NAME, item["url_name"])
+        self.rclient.sadd(spider.success_S, item["url_name"])
+        self.rclient.srem(spider.seen_S, item["url_name"])
 
         if item["if_female"]:
             self.rclient.set("people/" + item["hash_id"], json.dumps(d))
@@ -57,3 +56,18 @@ class RedisPipeline(object):
 
     def process_topicfollow_item(self, item, spider):
         pass
+
+    def sendToAccount(self, name):
+        if (not self.rclient.sismember(redis_const.SET_SEEN_HAS_ACCOUNT, name)) and (
+                not self.rclient.sismember(redis_const.SET_SUCCESS_HAS_ACCOUNT, name)):
+            if self.rclient.sadd(redis_const.PENDING_SET_HAS_ACCOUNT, name) == 1:
+                self.rclient.rpush(redis_const.PENDING_QUEUE_HAS_ACCOUNT, name)
+
+    def sendToNoAccount(self, name):
+        if (not self.rclient.sismember(redis_const.SET_SEEN_NO_ACCOUNT, name)) and (
+                not self.rclient.sismember(redis_const.SET_SUCCESS_NO_ACCOUNT, name)):
+            if self.rclient.sadd(redis_const.PENDING_SET_NO_ACCOUNT, name) == 1:
+                self.rclient.rpush(redis_const.PENDING_QUEUE_NO_ACCOUNT, name)
+
+    def process_sendtoaccount_item(self, item, spider):
+        self.sendToAccount(item['url_name'])

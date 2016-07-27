@@ -70,12 +70,7 @@ class ZhihuTest(unittest.TestCase):
     def test_redis(self):
         self.rclient = redis.StrictRedis(host="localhost", port=6379, db=0)
         self.assertEqual(0,self.rclient.sismember("propogation_people", "jia-dong-yu"))
-        l=self.rclient.smembers("target_people")
-        for p in l:
-            st=self.rclient.get("people/"+p)
-            i=st.find('url_name')
-            #print st[i+12:-2]
-            break
+        self.zhihuSpider.prepare()
 
 if __name__ == '__main__':
     unittest.main()

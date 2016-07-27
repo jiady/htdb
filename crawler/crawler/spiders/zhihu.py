@@ -13,6 +13,25 @@ import time
 import ConfigParser
 
 
+def _monkey_patching_HTTPClientParser_statusReceived():
+    """
+    monkey patching for scrapy.xlib.tx._newclient.HTTPClientParser.statusReceived
+    """
+    from twisted.web._newclient import HTTPClientParser, ParseError
+    old_sr = HTTPClientParser.statusReceived
+
+    def statusReceived(self, status):
+        try:
+            return old_sr(self, status)
+        except ParseError, e:
+            if e.args[0] == 'wrong number of parts':
+                return old_sr(self, status + ' OK')
+            raise
+
+    statusReceived.__doc__ == old_sr.__doc__
+    HTTPClientParser.statusReceived = statusReceived
+
+
 class filterConditon:
     # propogation node limit condition
     school_target = [u"复旦大学", u"华东师范大学", u"上海交通大学", u"同济大学", u"SJTU", u"sjtu", u"fdu", u"FDU", u"ECNU", u"ecnu",
@@ -133,6 +152,7 @@ class ZhihuSpider(scrapy.Spider):
                     time.sleep(1)
                 count -= 1
             else:
+                time.sleep(20)
                 break
         yield scrapy.Request("http://www.zhihu.com",
                              callback=self.backToConsume,
@@ -144,6 +164,7 @@ class ZhihuSpider(scrapy.Spider):
                              headers=self.headers)
 
     def start_requests(self):
+        _monkey_patching_HTTPClientParser_statusReceived()
         self.prepare()
         if self.sub_type == redis_const.TYPE_HAS_ACCOUNT:
             yield scrapy.Request(
@@ -322,3 +343,5 @@ class ZhihuSpider(scrapy.Spider):
         except Exception, e:
             self.send_mail("parse_people_info", str(
                 e) + "response:" + response.url + "\nresponse_body:" + response.body + "request:" + response.request.url)
+
+

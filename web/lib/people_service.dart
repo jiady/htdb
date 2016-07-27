@@ -36,11 +36,10 @@ class PeopleService {
     try {
       String response = await this.send("GET", "people/" + id);
       String data = JSON.decode(response)["GET"];
-      data = data.replaceAll("\n", "").replaceAll("'", "\"").replaceAll(
-          "\": u\"", "\":\"").replaceAll("True", "\"true\"");
+
       data = data.replaceAll("\\x", "");
       print(data);
-      Map<String, String> json = JSON.decode(data);
+      Map<String, dynamic> json = JSON.decode(data);
       Person ret = new Person.FromJson(json);
       return ret;
     }catch(e){
@@ -50,13 +49,16 @@ class PeopleService {
 
   Future<List<Person>> getPeople() async {
     List<String> hash_ids = await getTargetIds();
-    List<Person> people =new List<Person>();
+    List<Future<Person>> people =new List<Person>();
+    Future<List<Person>> ret;
     for (String id in hash_ids) {
-      Person p=await getIdInfo(id);
-      if(p!=null)
-        people.add(p);
+      Person p= getIdInfo(id);
+      people.add(p);
+
     }
-    return people;
+
+    return Future.wait(people).then((rt)=>rt);
+    //return people;
   }
 
 

@@ -8,7 +8,6 @@
 #cpp lib
 *.so
 *.a
-
 *.private
 
 #dart
@@ -16,4 +15,9 @@ web/.pub/*
 web/build/*
 web/packages/*
 
-config_private.py
+*_private.py
+*.sh
+*.txt
+*.log
+*.out
+/crawler/crawler/config_private.py

@@ -26,8 +26,8 @@ class Person {
       }
     }
     href="http://www.zhihu.com/people/"+url_name;
-    followee_num = int.parse(json["followee_num"]) ;
-    follower_num = int.parse(json["follower_num"]);
+    followee_num = json["followee_num"].toString();
+    follower_num = json["follower_num"].toString();
     agree_num = int.parse(json["agree_num"]);
   }
 }

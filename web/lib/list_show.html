@@ -2,11 +2,12 @@
     <h1>Zhihu User:{{people.length}}</h1>
     <ul class="medai-list">
         <li *ngFor="let person of people" class="media">
+            <div *ngIf="person!=null">
             <div class="media-left">
                 <img class="media-object" [src]="person.image_href" [alt]="person.name">
             </div>
             <div class="media-body">
-                <a [href]="person.href"><h4>{{person.bio}}</h4></a>
+                <a target="_blank" [href]="person.href"><h4>{{person.name}},{{person.bio}}</h4></a>
                 <p>
                     <span class="label label-primary" *ngIf="person.school!='not-found'">{{person.school}}</span>
                     <span class="label label-warning" *ngIf="person.major!='not-found'">{{person.major}}</span>
@@ -20,6 +21,7 @@
             <div class="media-right">
                 <button type="button" class="btn btn-danger">Like</button>
                 <button type="button" class="btn btn-default">Dislike</button>
+            </div>
             </div>
         </li>
     </ul>

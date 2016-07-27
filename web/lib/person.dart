@@ -28,6 +28,6 @@ class Person {
     href="http://www.zhihu.com/people/"+url_name;
     followee_num = json["followee_num"].toString();
     follower_num = json["follower_num"].toString();
-    agree_num = int.parse(json["agree_num"]);
+    agree_num = json["agree_num"].toString();
   }
 }

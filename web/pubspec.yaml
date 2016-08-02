@@ -1,4 +1,4 @@
-name: angular2_quickstart
+name: htdb
 description: QuickStart
 version: 0.0.1
 environment:
@@ -8,6 +8,9 @@ dependencies:
   browser: ^0.10.0
   dart_to_js_script_rewriter: ^1.0.1
   http: ^0.11.0
+  json_object: ^1.0.19
+  crypto: ^2.0.1
+  bootstrap: ^3.3.6
 transformers:
 - angular2:
     platform_directives:
@@ -16,7 +19,10 @@ transformers:
     - 'package:angular2/common.dart#COMMON_PIPES'
     entry_points: web/main.dart
     resolved_identifiers:
-            BrowserClient: 'package:http/browser_client.dart'
-            Client: 'package:http/http.dart'
+        BrowserClient: 'package:http/browser_client.dart'
+        Client: 'package:http/http.dart'
+- bootstrap:
+    url: //maxcdn.bootstrapcdn.com/bootstrap/{{version}}
+    version: 3.3.6
 - dart_to_js_script_rewriter
 

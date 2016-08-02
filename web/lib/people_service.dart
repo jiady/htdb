@@ -3,47 +3,54 @@ import 'package:angular2/core.dart';
 import 'package:http/browser_client.dart';
 import 'package:http/http.dart';
 import 'person.dart';
-import 'dart:html';
-
+import 'redis_service.dart';
 import 'dart:convert';
 
 @Injectable()
-class PeopleService {
-  final BrowserClient _http;
-  final String slash = "%2f";
-  static const _url = "http://127.0.0.1:7379/";
+class PeopleService extends RedisService {
+  Map<String,List<Person>> _cache=new Map<String,List<Person> >();
+  Map<String,List<String>> _cache_index=new Map<String,List<String> >();
 
-
-  Future<String> send(String cmd, String value) async {
-    try {
-      String url = _url + cmd + "/" + value.replaceAll("/", slash);
-      final response = await _http.get(url);
-      return response.body;
-    } catch (e) {
-      print(e);
+  Future<Map> _getRedisJson(key)async{
+    String response=await this.send("GET",key);
+    String data = JSON.decode(response)["GET"];
+    if(data!=null) {
+      data = data.replaceAll("\\x", "");
+      Map<String, dynamic> json = JSON.decode(data);
+      return json;
     }
+    return null;
   }
 
+  PeopleService(BrowserClient _http):
+      super(_http);
 
-  PeopleService(this._http);
-
-  Future<List<String>> getTargetIds() async {
-    String response = await this.send("SMEMBERS", "target_people");
-    return JSON.decode(response)["SMEMBERS"];
+  Future<List<String>> getTargetIds(String indexKey) async {
+    if(_cache_index.containsKey(indexKey)){
+      return _cache_index[indexKey];
+    }
+    if(indexKey.substring(0,5)=="today"){
+      String response = await this.send_list("LRANGE", [indexKey,"0","-1"]);
+      _cache_index[indexKey] = JSON.decode(response)["LRANGE"];
+    }else {
+      String response = await this.send("SMEMBERS", indexKey);
+      _cache_index[indexKey] = JSON.decode(response)["SMEMBERS"];
+    }
+    return _cache_index[indexKey];
   }
 
   Future<Person> getIdInfo(String id) async {
-
     try {
-      String response = await this.send("GET", "people/" + id);
-      if(response!=null) {
-        String data = JSON.decode(response)["GET"];
-        data = data.replaceAll("\\x", "");
-        print(data);
-        Map<String, dynamic> json = JSON.decode(data);
-        Person ret = new Person.FromJson(json);
+        Person ret=null;
+        Map json=await _getRedisJson("people/" + id);
+        if (json!=null){
+           ret= new Person.FromJson(json);
+        }
+        Map face=await _getRedisJson("face/"+id);
+        if(face!=null){
+          ret.setFace(face);
+        }
         return ret;
-      }
     }catch(e){
       String response = await this.send("GET", "people/" + id);
       String data = JSON.decode(response)["GET"];
@@ -54,18 +61,24 @@ class PeopleService {
     }
   }
 
-  Future<List<Person>> getPeople() async {
-    List<String> hash_ids = await getTargetIds();
+  String indexTag(String indexKey,int offset,int length){
+    return indexKey+"/"+offset.toString()+"/"+length.toString();
+  }
+
+  Future<List<Person>> getPeople(String indexKey,{int offset:0, int length:50}) async {
+    String indextag=indexTag(indexKey,offset,length);
+    if(_cache.containsKey(indextag)){
+      return _cache[indextag];
+    }
+    List<String> hash_ids = await getTargetIds(indexKey);
     List<Person> people =new List<Person>();
     Future<List<Person>> ret;
-    for (String id in hash_ids) {
-      Person p= await getIdInfo(id);
+    for (int i=offset;i<offset+length && i<hash_ids.length;i++) {
+      Person p= await getIdInfo(hash_ids[i]);
       if(p!=null)
         people.add(p);
-
     }
-
-    //return Future.wait(people).then((rt)=>rt);
+    _cache[indextag]=people;
     return people;
   }
 

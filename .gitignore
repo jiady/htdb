@@ -11,9 +11,14 @@
 *.private
 
 #dart
+web/.pub
 web/.pub/*
+web/build/
 web/build/*
+web/packages
 web/packages/*
+web/.packages
+pubspec.lock
 
 *_private.py
 *.sh

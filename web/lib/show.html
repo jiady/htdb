@@ -1,0 +1,13 @@
+<div class="container" style="margin-top:100px">
+    <div class="panel panel-default">
+        <div class="panel-heading">{{title}}</div>
+        <div class="panel-body">
+            <div class="list-group">
+                <p *ngFor="let meta_key of info.keys" class="list-group-item-text">
+                    <Strong>{{meta_key}}: </Strong>
+                    {{info[meta_key]}}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>

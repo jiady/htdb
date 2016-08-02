@@ -35,7 +35,7 @@ def _monkey_patching_HTTPClientParser_statusReceived():
 class filterConditon:
     # propogation node limit condition
     school_target = [u"复旦大学", u"华东师范大学", u"上海交通大学", u"同济大学", u"SJTU", u"sjtu", u"fdu", u"FDU", u"ECNU", u"ecnu",
-                     u"上海财经大学", u"上海外国语大学", u"浙江大学", u"南京大学", u"ZJU", ]
+                     u"上海财经大学", u"上海外国语大学", u"浙江大学", u"南京大学", u"ZJU", u"zju",u"清华大学",u"北京大学",u"THU",u"PKU"]
     followee_min = 0
     followee_max = 1000
     # target node limitation
@@ -76,9 +76,9 @@ class ZhihuSpider(scrapy.Spider):
         self.user = user
         self.pwd = pwd
         if self.master:
-            self.sub_name = "master." + sub_type + "," + sub_name
+            self.sub_name = "master." + sub_type + "." + sub_name
         else:
-            self.sub_name = "slave." + sub_type + "," + sub_name
+            self.sub_name = "slave." + sub_type + "." + sub_name
         self.sub_type = sub_type
         self.start_from_redis = start_from_redis
         self.start_from_file = start_from_file
@@ -86,6 +86,8 @@ class ZhihuSpider(scrapy.Spider):
         self.pending_S = redis_const.PENDING_SET + self.sub_type
         self.seen_S = redis_const.SET_SEEN + self.sub_type
         self.success_S = redis_const.SET_SUCCESS + self.sub_type
+        self.fail_S = redis_const.SET_FAIL + self.sub_type
+
         self.rclient = redis.StrictRedis(host="localhost", port=6379, db=0)
 
         handler = logging.handlers.TimedRotatingFileHandler(
@@ -119,15 +121,26 @@ class ZhihuSpider(scrapy.Spider):
     def send_mail(self, subject, text, lock=600):
         self.myMail.send_timed(lock, subject + "@" + self.sub_name, text)
 
+    def genConfig(self):
+        dire = os.path.dirname(os.path.realpath(__file__))
+        config_raw = open(dire + "/config_raw.private")
+        content = ''.join(config_raw.readlines())
+        lines = map(lambda x: x.strip(" ;"), content.split(';'))
+        config = open(dire + "/config.private", 'w')
+        config.write("[cookies]\n")
+        for line in lines:
+            config.write(line + "\n")
+        config.close()
+
     def prepare(self):
         if self.master:
             seen = self.rclient.spop(self.seen_S)
             print self.pending_S, self.pending_Q, seen
-            while seen is not None:
+            while (seen is not None) and len(seen) < 64:
                 if self.rclient.sadd(self.pending_S, seen):
                     self.rclient.rpush(self.pending_Q, seen)
                 seen = self.rclient.spop(self.seen_S)
-            time.sleep(1)
+            self.genConfig()
             self.fromFile()
             self.logger.info("master prepare done!")
         else:
@@ -135,10 +148,10 @@ class ZhihuSpider(scrapy.Spider):
             time.sleep(5)
 
     def consume(self, response):
-        b = "http://www.zhihu.com/people/"
+        b = "https://www.zhihu.com/people/"
         count = 50
         if self.sub_type == redis_const.TYPE_HAS_ACCOUNT:
-            count = 20
+            count = 10
             b = "https://www.zhihu.com/people/"
         while count > 0:
             name = self.rclient.lpop(self.pending_Q)
@@ -296,10 +309,9 @@ class ZhihuSpider(scrapy.Spider):
             person['followee_num'] = sideBar.xpath("a[1]/strong/text()").extract_first(default='not-found')
             person['follower_num'] = sideBar.xpath("a[2]/strong/text()").extract_first(default='not-found')
 
+            yield person
+
             if self.sub_type == redis_const.TYPE_NO_ACCOUNT:
-                person['followee_num'] = "0"
-                person['follower_num'] = "0"
-                yield person
                 if self.judge_person_as_target(person) and (not self.judge_person_as_valid_source(person)):
                     target = items.TargetPersonItem()
                     target['hash_id'] = person['hash_id']
@@ -309,8 +321,6 @@ class ZhihuSpider(scrapy.Spider):
                     tosend["url_name"] = person['url_name']
                     yield tosend
             else:
-                yield person
-
                 if self.judge_person_as_target(person):
                     target = items.TargetPersonItem()
                     target['hash_id'] = person['hash_id']
@@ -343,5 +353,3 @@ class ZhihuSpider(scrapy.Spider):
         except Exception, e:
             self.send_mail("parse_people_info", str(
                 e) + "response:" + response.url + "\nresponse_body:" + response.body + "request:" + response.request.url)
-
-

@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:http/http.dart' as http;
+
 import 'Task.dart';
 import 'config_private.dart' as config;
-
-import 'package:http/http.dart' as http;
 
 
 class FaceTask extends Task {

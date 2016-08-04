@@ -167,12 +167,12 @@ class ZhihuSpider(scrapy.Spider):
             else:
                 time.sleep(20)
                 break
-        yield scrapy.Request("http://www.zhihu.com",
+        yield scrapy.Request("https://www.zhihu.com",
                              callback=self.backToConsume,
                              headers=self.headers)
 
     def backToConsume(self, response):
-        yield scrapy.Request("http://www.zhihu.com",
+        yield scrapy.Request("https://www.zhihu.com",
                              callback=self.consume,
                              headers=self.headers)
 
@@ -181,14 +181,14 @@ class ZhihuSpider(scrapy.Spider):
         self.prepare()
         if self.sub_type == redis_const.TYPE_HAS_ACCOUNT:
             yield scrapy.Request(
-                "http://www.zhihu.com",
+                "https://www.zhihu.com",
                 callback=self.consume,
                 headers=self.headers,
                 cookies=self.cookies
             )
         elif self.sub_type == redis_const.TYPE_NO_ACCOUNT:
             yield scrapy.Request(
-                "http://www.zhihu.com",
+                "https://www.zhihu.com",
                 callback=self.consume,
                 headers=self.headers
             )
@@ -205,7 +205,7 @@ class ZhihuSpider(scrapy.Spider):
         post_data['_xsrf'] = xsrf
         self.headers['X-Xsrftoken'] = xsrf
         yield scrapy.FormRequest(
-            "http://www.zhihu.com/login/phone_num",
+            "https://www.zhihu.com/login/phone_num",
             formdata=post_data,
             headers=self.headers,
             callback=self.check_login
@@ -226,7 +226,7 @@ class ZhihuSpider(scrapy.Spider):
             if u"成功" in message:
                 self.logger.info("login success!!!")
                 yield scrapy.Request(
-                    "http://www.zhihu.com",
+                    "https://www.zhihu.com",
                     callback=self.consume,
                     headers=self.headers
                 )

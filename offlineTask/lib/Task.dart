@@ -35,7 +35,7 @@ abstract class Task {
 
   Future<bool> taskOperation(String result);
 
-  void init(){}
+  init(){}
 
   _single_go(String hash) async {
     String people = await rcommand.send_object(["GET", "people/" + hash]);
@@ -51,7 +51,7 @@ abstract class Task {
   }
 
   go() async {
-    init();
+    await init();
     await _initTaskQueue();
     List<String> target_hashs = await rcommand.send_object(
         ["SMEMBERS", this.redisTaskPopKey]);

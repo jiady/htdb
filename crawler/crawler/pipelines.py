@@ -47,9 +47,7 @@ class RedisPipeline(object):
         if item["if_female"]:
             self.rclient.set("people/" + item["hash_id"], json.dumps(d))
             self.rclient.set("hash/" + item["url_name"], item["hash_id"])
-            tasks = self.rclient.smembers("task-meta/ongoing")
-            for task in tasks:
-                r=self.rclient.sadd("task-pending/" + task, item["hash_id"])
+            r=self.rclient.sadd("task-pending/face-pp", item["hash_id"])
 
     def process_targetperson_item(self, item, spider):
         self.rclient.sadd("target_people", item["hash_id"])

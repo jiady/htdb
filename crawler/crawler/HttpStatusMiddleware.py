@@ -13,6 +13,6 @@ class HttpStatusMiddleware(object):
                 spider.rclient.smove(spider.seen_S, spider.fail_S, url_name)
                 raise IgnoreRequest()
         elif response.status == 403:
-            spider.myMail.send_timed("http status 403", "see if cookie invalide:" + response.body)
+            spider.send_mail("http status 403", "see if cookie invalide:" + response.body)
             raise IgnoreRequest()
         return response

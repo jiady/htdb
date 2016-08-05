@@ -64,22 +64,25 @@ class PeopleService extends RedisService {
   String indexTag(String indexKey,int offset,int length){
     return indexKey+"/"+offset.toString()+"/"+length.toString();
   }
-
-  Future<List<Person>> getPeople(String indexKey,{int offset:0, int length:50}) async {
+  List<Person> ifhasPeople(String indexKey,{int offset:0, int length:50}){
     String indextag=indexTag(indexKey,offset,length);
     if(_cache.containsKey(indextag)){
       return _cache[indextag];
     }
+    return null;
+  }
+  Stream<Person> getPeople(String indexKey,{int offset:0, int length:50}) async* {
+    String indextag=indexTag(indexKey,offset,length);
     List<String> hash_ids = await getTargetIds(indexKey);
     List<Person> people =new List<Person>();
     Future<List<Person>> ret;
     for (int i=offset;i<offset+length && i<hash_ids.length;i++) {
       Person p= await getIdInfo(hash_ids[i]);
       if(p!=null)
+        yield p;
         people.add(p);
     }
     _cache[indextag]=people;
-    return people;
   }
 
 

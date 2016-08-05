@@ -1,0 +1,18 @@
+<div class="container" style="margin-top:100px">
+    <div class="panel panel-default">
+        <div class="panel-heading">{{title}}</div>
+        <div class="panel-body">
+            <div class="col-lg-6 col-sm-6 col-xs-12">
+                <div *ngFor="let key of info.keys">
+                    <h4>{{key}}:《{{info[key]}}》</h4>
+                    <div class="input-group">
+                        <input type="text" class="form-control" [placeholder]="info[key]" [(ngModel)]="setting[key]">
+                        <span class="input-group-btn">
+                        <button class="btn btn-default" type="button" (click)="setRedis(key,setting[key])">设置</button>
+                        </span>
+                    </div><!-- /input-group -->
+                </div>
+            </div><!-- /.col-lg-6 -->
+        </div>
+    </div>
+</div>

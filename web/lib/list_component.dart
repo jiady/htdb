@@ -41,7 +41,13 @@ class ListComponent implements OnInit {
 
 
   Future<Null> getPeople(String index,int offset) async {
-    people = await _peopleService.getPeople(index,offset:offset);
+    people = _peopleService.ifhasPeople(index,offset: offset);
+    if(people==null) {
+      people=new List<Person>();
+      await for(Person p in _peopleService.getPeople(index, offset: offset)){
+        people.add(p);
+      }
+    }
     print("total people:");
     print(people.length);
   }

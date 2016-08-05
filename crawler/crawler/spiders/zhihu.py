@@ -35,7 +35,7 @@ def _monkey_patching_HTTPClientParser_statusReceived():
 class filterConditon:
     # propogation node limit condition
     school_target = [u"复旦大学", u"华东师范大学", u"上海交通大学", u"同济大学", u"SJTU", u"sjtu", u"fdu", u"FDU", u"ECNU", u"ecnu",
-                     u"上海财经大学", u"上海外国语大学", u"浙江大学", u"南京大学", u"ZJU", u"zju",u"清华大学",u"北京大学",u"THU",u"PKU"]
+                     u"上海财经大学", u"上海外国语大学", u"浙江大学", u"南京大学", u"ZJU", u"zju", u"清华大学", u"北京大学", u"THU", u"PKU"]
     followee_min = 0
     followee_max = 1000
     # target node limitation
@@ -111,26 +111,26 @@ class ZhihuSpider(scrapy.Spider):
             'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:35.0) Gecko/20100101 Firefox/35.0',
         }
         self.stop = False
-        cf = ConfigParser.ConfigParser()
-        f = os.path.dirname(os.path.realpath(__file__))
-        cf.read(f + '/config.private')
-        cookies = cf.items('cookies')
-        self.cookies = dict(cookies)
-        self.headers['X-Xsrftoken'] = self.cookies["_xsrf"]
+
 
     def send_mail(self, subject, text, lock=600):
         self.myMail.send_timed(lock, subject + "@" + self.sub_name, text)
 
     def genConfig(self):
+        content=self.rclient.get("crawler/web-cookie")
         dire = os.path.dirname(os.path.realpath(__file__))
-        config_raw = open(dire + "/config_raw.private")
-        content = ''.join(config_raw.readlines())
         lines = map(lambda x: x.strip(" ;"), content.split(';'))
         config = open(dire + "/config.private", 'w')
         config.write("[cookies]\n")
         for line in lines:
             config.write(line + "\n")
         config.close()
+        cf = ConfigParser.ConfigParser()
+        f = os.path.dirname(os.path.realpath(__file__))
+        cf.read(f + '/config.private')
+        cookies = cf.items('cookies')
+        self.cookies = dict(cookies)
+        self.headers['X-Xsrftoken'] = self.cookies["_xsrf"]
 
     def prepare(self):
         if self.master:
@@ -151,8 +151,7 @@ class ZhihuSpider(scrapy.Spider):
         b = "https://www.zhihu.com/people/"
         count = 50
         if self.sub_type == redis_const.TYPE_HAS_ACCOUNT:
-            count = 10
-            b = "https://www.zhihu.com/people/"
+            count = 1
         while count > 0:
             name = self.rclient.lpop(self.pending_Q)
             if name is not None:
@@ -193,24 +192,6 @@ class ZhihuSpider(scrapy.Spider):
                 headers=self.headers
             )
 
-    def login(self, response):
-        xsrf = scrapy.Selector(response).xpath('//input[@name="_xsrf"]/@value').extract()[0]
-        self.logger.info("xsrf:%s", xsrf)
-        post_data = {
-            "phone_num": self.user,
-            "password": self.pwd,
-            "remember_me": "true"
-        }
-        self.logger.info(post_data)
-        post_data['_xsrf'] = xsrf
-        self.headers['X-Xsrftoken'] = xsrf
-        yield scrapy.FormRequest(
-            "https://www.zhihu.com/login/phone_num",
-            formdata=post_data,
-            headers=self.headers,
-            callback=self.check_login
-        )
-
     def fromFile(self):
         if self.start_from_file is not None:
             f = open(self.start_from_file, 'r')
@@ -220,28 +201,13 @@ class ZhihuSpider(scrapy.Spider):
                 if self.rclient.sadd(self.pending_S, u):
                     self.rclient.rpush(self.pending_Q, u)
 
-    def check_login(self, response):
-        if response.status == 200:
-            message = response.selector.xpath("//p[1]").extract()[0].decode("unicode_escape")
-            if u"成功" in message:
-                self.logger.info("login success!!!")
-                yield scrapy.Request(
-                    "https://www.zhihu.com",
-                    callback=self.consume,
-                    headers=self.headers
-                )
-            else:
-                self.logger.error("login failed:%s", message)
-        else:
-            self.logger.error("response status not 200：%d", response.status)
-
     def parse_people_list_more(self, response):
         try:
             j = json.loads(response.body)
             sel = Selector(text=" ".join(j['msg']))
             self.logger.info(response.request.headers['tracking_user_hash'])
             follower_hash = response.request.headers['tracking_user_hash']
-            people = sel.xpath("//h2[@class='zm-list-content-title']/a")
+            people = sel.xpath("//h2[@class='zm-list-content-title']//a")
             for person in people:
                 # name = person.xpath("@title").extract_first(default='not-found')
                 href = person.xpath("@href").extract_first(default='not-found')
@@ -250,7 +216,7 @@ class ZhihuSpider(scrapy.Spider):
                 ret["follower"] = follower_hash
                 ret["followee"] = url_name
                 yield ret
-                self.logger.info(href)
+                self.logger.info("add to noaccount:"+href)
         except Exception, e:
             self.send_mail("parse_people_list_exception", str(e))
 
@@ -288,7 +254,7 @@ class ZhihuSpider(scrapy.Spider):
             person['hash_id'] = basic_info[3].strip('"')
             top = profileCard.xpath(".//div[@class='top']")
             person["name"] = top.xpath(".//span[@class='name']/text()").extract_first(default='not-found')
-            person['bio'] = top.xpath(".//div[@class='bio']/text()").extract_first(default='not-found')
+            person['bio'] = top.xpath(".//div[contains(@class,'bio')]/text()").extract_first(default='not-found')
             infoItem = profileCard.xpath("//div[@class='items']")
             person['city'] = infoItem.xpath(".//span[contains(@class,'location')]/@title").extract_first(
                 default='not-found')
@@ -353,3 +319,33 @@ class ZhihuSpider(scrapy.Spider):
         except Exception, e:
             self.send_mail("parse_people_info", str(
                 e) + "response:" + response.url + "\nresponse_body:" + response.body + "request:" + response.request.url)
+'''
+    def parse_people_info_mob(self, response):
+        try:
+            j = json.loads(response.body)
+            if "error" in j:
+                self.send_mail("parse_people_error", response.body)
+            person = items.PersonItem()
+            person["image_href"] = j["avatar_url"].replace("_s.", "_l.")
+            person["url_name"] = ""
+            person["hash_id"] = j['id']
+            person["name"] = j['name']
+            person["bio"] = j['headline']
+            try:
+                person['city'] = j['locations'][0]['name']
+            except:
+                person['city'] = 'not-found'
+            person["if_female"] = (j['gender'] == 0)
+            try:
+                person['school'] = j['educations'][0]['school']['name']
+            except:
+                person['school'] = 'not-found'
+            try:
+                person['major'] = j['educations'][0]['major']['name']
+            except:
+                person['major'] = 'not-found'
+            person['introduction'] = j['description']
+            person['agree_num'] = j['voteup_count']
+            person['follower_num'] = j['follower_count']
+            person['followee_num'] = j['following_count']
+            '''

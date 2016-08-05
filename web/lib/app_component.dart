@@ -7,6 +7,7 @@ import 'login_component.dart';
 import 'list_component.dart';
 import 'crawler_meta_service.dart';
 import 'manage_component.dart';
+import 'setting_component.dart';
 
 
 @Component(
@@ -24,6 +25,9 @@ import 'manage_component.dart';
       component: ListComponent),
   const Route(path:'/meta/:type',
       name:"Meta",
-      component: ManageComponent)
+      component: ManageComponent),
+  const Route(path:'/settings',
+      name:"Setting",
+      component: SettingComponent)
 ])
 class AppComponent {}

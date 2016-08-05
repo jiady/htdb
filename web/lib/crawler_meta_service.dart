@@ -25,34 +25,44 @@ class CrawlerMataService extends RedisService {
     Map ret = new Map();
     for (String key in sets_name.keys) {
       String response = await this.send("SCARD", sets_name[key]);
-      ret[key] =JSON.decode(response)["SCARD"];
+      ret[key] = JSON.decode(response)["SCARD"];
     }
     String response = await this.send("INFO", "memory");
-    ret["内存"] =JSON.decode(response)["INFO"];
+    ret["内存"] = JSON.decode(response)["INFO"];
 
     response = await this.send("INFO", "cpu");
-    ret["CPU"] =JSON.decode(response)["INFO"];
+    ret["CPU"] = JSON.decode(response)["INFO"];
 
     response = await this.send("INFO", "persistence");
-    ret["备份"] =JSON.decode(response)["INFO"];
+    ret["备份"] = JSON.decode(response)["INFO"];
 
     return ret;
   }
 
-  Future<Map> getTaskInfo()async{
-    Map ret=new Map();
-    String response=await this.send("SMEMBERS","task-meta/ongoing");
-    List<String> tasks=JSON.decode(response)["SMEMBERS"];
-    ret["进行中任务"]=tasks;
-    for(String task in tasks){
-      String response=await this.send("SCARD","task-finish/"+task);
-      ret["任务"+task+"完成数"]=JSON.decode(response)["SCARD"];
-      response=await this.send("SCARD","task-pending/"+task);
-      ret["任务"+task+"待进行"]=JSON.decode(response)["SCARD"];
-       response=await this.send("SCARD","task-fail/"+task);
-      ret["任务"+task+"失败数"]=JSON.decode(response)["SCARD"];
+  Future<Map> getTaskInfo() async {
+    Map ret = new Map();
+    String response = await this.send("SMEMBERS", "task-meta/ongoing");
+    List<String> tasks = JSON.decode(response)["SMEMBERS"];
+    ret["进行中任务"] = tasks;
+    for (String task in tasks) {
+      String response = await this.send("SCARD", "task-finish/" + task);
+      ret["任务" + task + "完成数"] = JSON.decode(response)["SCARD"];
+      response = await this.send("SCARD", "task-pending/" + task);
+      ret["任务" + task + "待进行"] = JSON.decode(response)["SCARD"];
+      response = await this.send("SCARD", "task-fail/" + task);
+      ret["任务" + task + "失败数"] = JSON.decode(response)["SCARD"];
     }
     return ret;
+  }
+
+  Future<String> getKey(String key) async {
+    String response = await this.send("GET", key);
+    return JSON.decode(response)["GET"];
+  }
+
+  Future<String> setKey(String key, String value) async {
+    String response = await this.send_list("SET", [key, value]);
+    return getKey(key);
   }
 
 }

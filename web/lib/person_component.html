@@ -1,0 +1,24 @@
+<li *ngIf="person!=null" class="media">
+        <div class="media-left">
+            <img class="media-object" [src]="person.image_href" [alt]="person.name">
+        </div>
+        <div class="media-body">
+            <a target="_blank" [href]="person.href"><h4>{{person.name}},{{person.bio}}</h4></a>
+            <p>
+                                <span class="label label-primary"
+                                      *ngIf="person.school!='not-found'">{{person.school}}</span>
+                <span class="label label-warning"
+                      *ngIf="person.major!='not-found'">{{person.major}}</span>
+                <span class="label label-default" *ngIf="person.follower_num!='not-found'">关注者：{{person.follower_num}}</span>
+                <span class="label label-info"
+                      *ngIf="person.city!='not-found'">城市：{{person.city}}</span>
+            </p>
+            <p *ngIf="person.face!=null">
+                <span class="label label-primary">头像预估年龄:{{person.face.age}}</span>
+                <span class="label label-info">头像性别：{{person.face.gender}}</span>
+            </p>
+            <p *ngIf="person.introduction!='not-found'">
+                {{person.introduction}}
+            </p>
+        </div>
+</li>

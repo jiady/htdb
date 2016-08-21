@@ -1,0 +1,57 @@
+<nav class="navbar navbar-default navbar-fixed-bottom" role="navigation">
+    <div class="container">
+        <div class="navbar-brand pull-right" >{{editMode}}</div>
+    </div>
+</nav>
+    <div class="panel panel-default">
+        <div class="panel-body">
+            <nav>
+                <ul class="pagination">
+                    <li *ngFor="let pageNum of pageNumsToBeShowed"
+                        [class.active]="pageNum==current_page_num"
+                        (click)="current_page=pageNum">
+                        <a>{{pageNum}}</a>
+                    </li>
+                </ul>
+            </nav>
+            <ul class="media-list">
+                <div *ngFor="let p of people">
+                    <div *ngIf="p?.Status==Status">
+                        <div class="btn-group pull-right">
+                            <button *ngFor="let st of AllStatus"
+                                    type="button"
+                                    class="btn"
+                                    [class.btn-success]="btn_success(st)"
+                                    [class.btn-danger]="btn_danger(st)"
+                                    [class.btn-warning]="btn_warning(st)"
+                                    [class.btn-primary]="btn_primary(st)"
+                                    [class.btn-default]="btn_default(st)"
+                                    (click)="movePerson(st,p)">
+                                {{st}}
+                            </button>
+                        </div>
+                        <person_component [person]="p"></person_component>
+                        <div class="input-group input-group-lg"
+                        style="margin-bottom: 10px">
+                            <span class="input-group-addon">Review</span>
+                            <input type="text"
+                                   class="form-control"
+                                   placeholder="Loading..."
+                                   [(ngModel)]="review[p.hash_id]"
+                                   (focus)="editMode='write'"
+                                   (blur)="updateReview(p)">
+                        </div>
+                    </div>
+                </div>
+            </ul>
+            <nav>
+                <ul class="pagination">
+                    <li *ngFor="let pageNum of pageNumsToBeShowed"
+                        [class.active]="pageNum==current_page_num"
+                        (click)="current_page=pageNum">
+                        <a>{{pageNum}}</a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </div>

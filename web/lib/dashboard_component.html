@@ -1,0 +1,14 @@
+<div class="container" style="margin-top: 0px">
+    <ul class="nav nav-tabs" role="tablist">
+            <li role="presentation"
+                *ngFor="let st of allStatus"
+                (click)="status=st"
+                [class.active]="status==st">
+                <a>{{st}}</a>
+            </li>
+    </ul>
+    <dashboard_list_component
+            [status]="status"
+            [allStatus]="availableStatus">
+    </dashboard_list_component>
+</div>

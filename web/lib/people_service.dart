@@ -10,10 +10,13 @@ import 'dart:convert';
 class PeopleService extends RedisService {
   Map<String,List<Person>> _cache=new Map<String,List<Person> >();
   Map<String,List<String>> _cache_index=new Map<String,List<String> >();
+  Map<String,Person> _cachePerson= new Map<String,Person>();
+  Map<String,String> _cacheReview = new Map<String,String>();
+
+  get review=>_cacheReview;
 
   Future<Map> _getRedisJson(key)async{
-    String response=await this.send("GET",key);
-    String data = JSON.decode(response)["GET"];
+    String data =await _send_list("GET",[key]);
     if(data!=null) {
       data = data.replaceAll("\\x", "");
       Map<String, dynamic> json = JSON.decode(data);
@@ -22,11 +25,16 @@ class PeopleService extends RedisService {
     return null;
   }
 
+  Future _send_list(String cmd,List values)async{
+    String response= await this.send_list(cmd,values);
+    return  JSON.decode(response)[cmd];
+  }
+
   PeopleService(BrowserClient _http):
       super(_http);
 
-  Future<List<String>> getTargetIds(String indexKey) async {
-    if(_cache_index.containsKey(indexKey)){
+  Future<List<String>> getTargetIds(String indexKey,{bool cache:true}) async {
+    if(cache && _cache_index.containsKey(indexKey)){
       return _cache_index[indexKey];
     }
     if(indexKey.substring(0,5)=="today"){
@@ -39,8 +47,10 @@ class PeopleService extends RedisService {
     return _cache_index[indexKey];
   }
 
+
   Future<Person> getIdInfo(String id) async {
     try {
+        if(_cachePerson.containsKey(id)) return _cachePerson[id];
         Person ret=null;
         Map json=await _getRedisJson("people/" + id);
         if (json!=null){
@@ -50,6 +60,7 @@ class PeopleService extends RedisService {
         if(face!=null){
           ret.setFace(face);
         }
+        _cachePerson[id]=ret;
         return ret;
     }catch(e){
       String response = await this.send("GET", "people/" + id);
@@ -58,6 +69,23 @@ class PeopleService extends RedisService {
       print(data);
       Map<String, dynamic> json = JSON.decode(data);
       Person ret = new Person.FromJson(json);
+    }
+  }
+
+  Future<String> getReviewInfo(String id) async {
+    try {
+      if(_cacheReview.containsKey(id)) return _cacheReview[id];
+      String ret=null;
+      ret =await _send_list("GET",["review/" + id]);
+      if (ret!=null){
+        _cacheReview[id]=ret;
+        return ret;
+      }else{
+        print(ret);
+      }
+    }catch(e){
+      String ret =await _send_list("GET",["review/" + id]);
+      print(ret);
     }
   }
 
@@ -71,9 +99,9 @@ class PeopleService extends RedisService {
     }
     return null;
   }
-  Stream<Person> getPeople(String indexKey,{int offset:0, int length:50}) async* {
+  Stream<Person> getPeople(String indexKey,{int offset:0, int length:50, bool cache:true}) async* {
     String indextag=indexTag(indexKey,offset,length);
-    List<String> hash_ids = await getTargetIds(indexKey);
+    List<String> hash_ids = await getTargetIds(indexKey,cache: cache);
     List<Person> people =new List<Person>();
     Future<List<Person>> ret;
     for (int i=offset;i<offset+length && i<hash_ids.length;i++) {
@@ -85,5 +113,46 @@ class PeopleService extends RedisService {
     _cache[indextag]=people;
   }
 
+  Stream<List<String>> getReview(String indexKey,{int offset:0, int length:50, bool cache:true}) async* {
+    List<String> hash_ids = await getTargetIds(indexKey,cache: cache);
+    for (int i=offset;i<offset+length && i<hash_ids.length;i++) {
+      String p= await getReviewInfo(hash_ids[i]);
+      if(p!=null)
+        yield [hash_ids[i],p];
+    }
+  }
+
+  Future<bool> MovePerson(String p, String from, String to) async {
+    String f="status/"+from;
+    String t="status/"+to;
+    var res= await _send_list("SMOVE",[f,t,p]);
+    if(res!=null && res==1) return true;
+    return false;
+  }
+
+  Future<bool> like(String p) async{
+    String name="status";
+    var res= await _send_list("SADD",[name,p]);
+    if(res!=null && res==1) {
+      name = "status/Not-Started";
+      res = await _send_list("SADD", [name, p]);
+      if(res!=null && res==1) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  Future<bool> setReview(String p,String c) async {
+    if(_cacheReview.containsKey(p)){
+      if (_cacheReview[p]==c) return true;
+    }
+    _cacheReview.remove(p);
+    var res= await _send_list("SET",["review/"+p,c]);
+    if(res!=null && res[1]=="OK"){
+      return true;
+    }
+    return false;
+  }
 
 }

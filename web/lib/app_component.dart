@@ -8,6 +8,7 @@ import 'list_component.dart';
 import 'crawler_meta_service.dart';
 import 'manage_component.dart';
 import 'setting_component.dart';
+import 'dashboard_component.dart';
 
 
 @Component(
@@ -20,6 +21,9 @@ import 'setting_component.dart';
       name: 'Login',
       component: LoginComponent,
       useAsDefault: true),
+  const Route(path: '/dashboard',
+      name: 'DashBoard',
+      component: DashboardComponent),
   const Route(path:'/userlist/:index/:offset',
       name:"UserList",
       component: ListComponent),

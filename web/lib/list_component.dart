@@ -52,6 +52,13 @@ class ListComponent implements OnInit {
     print(people.length);
   }
 
+  void like(Person p){
+    p.liked=true;
+    _peopleService.like(p.hash_id).then((bool b){
+      if(b==false)  p.liked=false;
+    });
+  }
+
   @override
   ngOnInit() {
     current_page_num = 0;

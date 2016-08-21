@@ -11,7 +11,9 @@
         </div>
         <div id="navbar" class="navbar-collapse collapse">
             <ul class="nav navbar-nav">
+                <!--
                 <li><a [routerLink]="routerOfToady">今日最新</a></li>
+                -->
                 <li class="dropdown">
                     <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">用户列表<span class="caret"></span></a>
                     <ul class="dropdown-menu">
@@ -22,6 +24,7 @@
                         <li><a [routerLink]="['UserList',{'index':'non-target-has-face','offset':'0'}]">有头像普通用户</a></li>
                     </ul>
                 </li>
+                <li><a [routerLink]="['DashBoard']">信息管理</a></li>
                 <!--
                 <li><a href="#">推荐系统</a></li>
                 -->

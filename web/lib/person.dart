@@ -5,6 +5,11 @@ class Person {
   String name, bio, introduction, school, major, city,image_href,url_name;
   String follower_num, followee_num, agree_num;
   JsonObject face;
+  String Status;
+  String review;
+  bool saveSuccess;
+  bool saveFail;
+  bool liked=false;
 
   static Map<String,String> transform={
    "https://pic4.zhimg.com":"http://7xjdxk.com1.z0.glb.clouddn.com",

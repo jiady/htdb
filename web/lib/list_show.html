@@ -35,8 +35,12 @@
                             </p>
                         </div>
                         <div class="media-right">
-                            <button type="button" class="btn btn-danger">Like</button>
-                            <button type="button" class="btn btn-default">Dislike</button>
+                            <button type="button"
+                                    [class.disabled]="person.liked"
+                                    class="btn btn-danger"
+                                    (click)="like(person)">
+                                Like
+                            </button>
                         </div>
                     </div>
                 </li>
